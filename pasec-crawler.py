@@ -86,8 +86,6 @@ try:
             
             #article_contents = con.escape_string(str(article_contents))
             #cur.execute('insert into notice_content(source_address, content) values("%s", "%s")' %(article_source_address, article_contents))
-        
-798700*10000/7521250000.0
 
         except sqlite3.Error, msg:
             print msg
