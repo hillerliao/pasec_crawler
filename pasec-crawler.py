@@ -28,7 +28,7 @@ import re
 url = 'http://stock.pingan.com/servlet/article/Article?catalogId=2962'
 socket.setdefaulttimeout(200)
 # soup = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml', from_encoding='GBK')
-soup = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml')
+soup = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml', from_encoding='utf-8')
 
 href_list_all = [a.get('href') for a in soup.find_all('a')]
 
@@ -49,7 +49,8 @@ try:
     cur = con.cursor()
     cur.execute("drop table if exists notice_category")
     cur.execute("drop table if exists notice_content")
-    #cur.execute("create table notice (title text, author varchar(50), date varchar(50), source_address text, content text)")
+    cur.execute("drop table if exists notice")
+    cur.execute("create table notice (title text, author varchar(50), date varchar(50), source_address text, content text)")
     cur.execute("create table notice_category(sid int, title text, date varchar(50), author varchar(50), source_address text)")
     cur.execute("create table notice_content(source_address text, content text)")
 
@@ -61,10 +62,12 @@ try:
         try:
             article_title = detail_soup.find('span', {'id': 'title'}).string
             article_contents_original = detail_soup.find('div', {'class':'artMain'}).contents
-            #TODO 还需过滤 <STYLE>样式
-            #re_contents_style = re.compile(r'')
-            dr = re.compile(r'<[^>]+>')
-            article_contents = dr.sub('', str(article_contents_original))
+            #过滤 <STYLE>里面的一大坨
+            dr1 = re.compile(r'<style>*<style>')
+            article_contents = dr1.sub('', str(article_contents_original))
+            #过滤html标签
+            dr2 = re.compile(r'<[^>]+>')
+            article_contents = dr2.sub('', str(article_contents))
             article_pub_date = detail_soup.find('div', {'class':'futxt'}).span.string
            # 发布时间还可以从 href 中找到 http://stock.pingan.com/a/20151127/8370644.shtml
             article_author = '平安证券官网'
@@ -85,7 +88,9 @@ try:
             #TODO 先测试数据库连接与建表
             
             #article_contents = con.escape_string(str(article_contents))
-            #cur.execute('insert into notice_content(source_address, content) values("%s", "%s")' %(article_source_address, article_contents))
+            cur.execute('insert into notice_content(source_address, content) values("%s", "%s")' %(article_source_address, article_contents))
+        
+
 
         except sqlite3.Error, msg:
             print msg
