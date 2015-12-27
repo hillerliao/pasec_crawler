@@ -27,23 +27,15 @@ import re
 
 url = 'http://stock.pingan.com/servlet/article/Article?catalogId=2962'
 socket.setdefaulttimeout(200)
-# soup = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml', from_encoding='GBK')
 soup = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml', from_encoding='utf-8')
-
 href_list_all = [a.get('href') for a in soup.find_all('a')]
-
-
 re_web_url = re.compile(r'(http://stock.pingan.com/a/[0-9.]+)\/[0-9.]+\.shtml$')
-
 href_list = []
 for href in href_list_all:
     if re_web_url.match(href) and urllib2.urlopen(href).read().find('body') > 0:
         href_list.append(href)
 
-#print href_list
-
 details_list = []
-# connect to SQLite
 try:
     con = sqlite3.connect('PA_NOTICE')
     cur = con.cursor()
@@ -54,24 +46,22 @@ try:
     cur.execute("create table notice_category(sid int, title text, date varchar(50), author varchar(50), source_address text)")
     cur.execute("create table notice_content(source_address text, content text)")
 
-
     for href in href_list:
         sub_details_list = []
         detail_soup = BeautifulSoup(urllib2.urlopen(href).read(), 'lxml', from_encoding='utf-8')
 
+
         try:
             article_title = detail_soup.find('span', {'id': 'title'}).string
+            
             article_contents_original = detail_soup.find('div', {'class':'artMain'}).contents
-            #过滤 <STYLE>里面的一大坨
-            dr1 = re.compile(r'<style>*<style>')
-            article_contents = dr1.sub('', str(article_contents_original))
-            #过滤html标签
-            dr2 = re.compile(r'<[^>]+>')
-            article_contents = dr2.sub('', str(article_contents))
+            re_style = re.compile('<\s*style[^>]*>[^<]*<\s*/\s*style\s*>', re.I) #过滤style，方法1
+            re_html = re.compile(r'<[^>]+>') #过滤html标签
+			article_contents = re_style.sub('', str(article_contents_original))
+            article_contents = re_html.sub('', str(article_contents))
+
             article_pub_date = detail_soup.find('div', {'class':'futxt'}).span.string
-           # 发布时间还可以从 href 中找到 http://stock.pingan.com/a/20151127/8370644.shtml
             article_author = '平安证券官网'
-            # TODO 需要过滤内容中的html标签
             article_source_address = href
             
             sub_details_list.append(article_title)
@@ -86,18 +76,12 @@ try:
             cur.execute('delete from notice_content where source_address = "%s"' %article_source_address)
             cur.execute('insert into notice_category(sid, title, date, author, source_address) values(3, "%s", "%s",  "%s", "%s")' %(article_title, article_pub_date, article_author, article_source_address))
             #TODO 先测试数据库连接与建表
-            
-            #article_contents = con.escape_string(str(article_contents))
             cur.execute('insert into notice_content(source_address, content) values("%s", "%s")' %(article_source_address, article_contents))
-        
-
 
         except sqlite3.Error, msg:
-            print msg
-        
+            print msg        
     con.commit()
     cur.close()
     con.close()
 except sqlite3.Error, msg:
     print msg
-#print str(details_list[1])
